@@ -135,17 +135,20 @@ function renderProject(p) {
     p.shots.forEach((_, i) => { fields["Person " + (i + 1)] = (v["n" + i] || "") + " – " + (v["r" + i] || ""); });
     fields["Ansprechpartner"] = v.ap || "-"; fields["E-Mail"] = v.mail || "-"; fields["Anmerkungen"] = v.notes || "-"; fields["Seite"] = location.href.split("#")[0];
     if (v.mail) fields._replyto = v.mail;
-    let ok = false;
+    let ok = false, notActivated = false;
     try {
       const r = await fetch("https://formsubmit.co/ajax/" + DATA.mail, { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(fields) });
       const j = await r.json().catch(() => ({})); ok = r.ok && String(j.success) === "true";
+      if (!ok && /activat/i.test(String(j.message || ""))) { notActivated = true; }
     } catch (err) { ok = false; }
     if (ok) {
       status.innerHTML = "<b>Gesendet, vielen Dank!</b> Die Angaben sind bei " + esc(DATA.mail) + " eingegangen.";
       btn.textContent = "Gesendet"; try { localStorage.removeItem(key(p)); } catch (e) {}
     } else {
       btn.disabled = false; btn.textContent = "Absenden";
-      status.innerHTML = "Das Senden hat gerade nicht geklappt. Bitte noch einmal versuchen oder den Text unten kopieren und an <b>" + esc(DATA.mail) + "</b> mailen.";
+      status.innerHTML = notActivated
+        ? "Der Versand ist noch nicht freigeschaltet (FormSubmit-Aktivierung steht aus). Bitte den Text unten kopieren und an <b>" + esc(DATA.mail) + "</b> mailen, oder es später noch einmal versuchen."
+        : "Das Senden hat gerade nicht geklappt. Bitte noch einmal versuchen oder den Text unten kopieren und an <b>" + esc(DATA.mail) + "</b> mailen.";
       const pre = document.getElementById("mailtext"); pre.textContent = body; pre.classList.add("show");
     }
     status.classList.add("show");
