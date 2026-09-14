@@ -145,7 +145,7 @@ function renderProject(p) {
     const base = location.href.split("#")[0].replace(/[^/]*$/, "");
     p.shots.forEach((_, i) => { fields["Person " + (i + 1)] = (v["n" + i] || "") + " – " + (v["r" + i] || "") + "  |  Bild: " + base + "p" + (i + 1) + ".jpg"; });
     const result = { e: p.shots.map((_, i) => [v["n" + i] || "", v["r" + i] || ""]), ap: v.ap || "", m: v.mail || "", n: v.notes || "" };
-    const enc = btoa(unescape(encodeURIComponent(JSON.stringify(result)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    const enc = btoa(unescape(encodeURIComponent(JSON.stringify(result)))).replace(/[+]/g, "-").replace(/[/]/g, "_").replace(/=+$/, "");
     fields["Uebersicht mit Bildern"] = base + "#r=" + enc;
     fields["Ansprechpartner"] = v.ap || "-"; fields["E-Mail"] = v.mail || "-"; fields["Anmerkungen"] = v.notes || "-"; fields["Seite"] = location.href.split("#")[0];
     if (v.mail) fields._replyto = v.mail;
