@@ -104,9 +104,9 @@ function renderProject(p) {
   </div>
   <div style="margin-top:12px"><label for="notes">Anmerkungen <span>(optional, z. B. Schreibweisen, Titel, Personen ohne Bauchbinde)</span></label><textarea id="notes" name="notes" rows="3">${esc(d.notes || "")}</textarea></div>
   <div class="actions">
-    <button type="submit" class="primary">Per E-Mail absenden</button>
+    <button type="submit" class="primary">Absenden</button>
     <button type="button" class="ghost" id="copy">Text kopieren</button>
-    <span class="note">Absenden öffnet Ihr Mailprogramm mit den Angaben an ${esc(DATA.mail)}.</span>
+    <span class="note">Die Angaben gehen direkt an ${esc(DATA.mail)}.</span>
   </div>
   <div class="status" id="status"></div>
   <pre class="mailtext" id="mailtext"></pre>
@@ -129,14 +129,26 @@ function renderProject(p) {
     e.preventDefault();
     const missing = validate();
     if (missing.length) { status.textContent = "Bitte noch den Namen eintragen für Person " + missing.join(", ") + "."; status.classList.add("show"); return; }
-    const body = text(); const v = collect();
-    const payload = { slug: p.slug, project: name, entries: p.shots.map((_, i) => ({ nr: i + 1, name: v["n" + i] || "", role: v["r" + i] || "" })), contact_name: v.ap || "", contact_mail: v.mail || "", notes: v.notes || "", text: body };
-    let saved = false;
-    try { const r = await fetch("/api/submit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); saved = r.ok; } catch (err) {}
-    location.href = `mailto:${DATA.mail}?subject=${encodeURIComponent("Bauchbinden " + name)}&body=${encodeURIComponent(body)}`;
-    status.innerHTML = (saved ? "Ihre Angaben sind gespeichert. " : "") + "Ihr Mailprogramm sollte sich jetzt öffnen. Falls nicht: unten den Text kopieren und an <b>" + esc(DATA.mail) + "</b> schicken.";
+    const body = text(); const v = collect(); const btn = f.querySelector("button[type=submit]");
+    btn.disabled = true; btn.textContent = "Wird gesendet …"; status.textContent = ""; status.classList.remove("show");
+    const fields = { _subject: "Bauchbinden " + name, _template: "table", _captcha: "false", Projekt: name };
+    p.shots.forEach((_, i) => { fields["Person " + (i + 1)] = (v["n" + i] || "") + " – " + (v["r" + i] || ""); });
+    fields["Ansprechpartner"] = v.ap || "-"; fields["E-Mail"] = v.mail || "-"; fields["Anmerkungen"] = v.notes || "-"; fields["Seite"] = location.href.split("#")[0];
+    if (v.mail) fields._replyto = v.mail;
+    let ok = false;
+    try {
+      const r = await fetch("https://formsubmit.co/ajax/" + DATA.mail, { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(fields) });
+      const j = await r.json().catch(() => ({})); ok = r.ok && String(j.success) === "true";
+    } catch (err) { ok = false; }
+    if (ok) {
+      status.innerHTML = "<b>Gesendet, vielen Dank!</b> Die Angaben sind bei " + esc(DATA.mail) + " eingegangen.";
+      btn.textContent = "Gesendet"; try { localStorage.removeItem(key(p)); } catch (e) {}
+    } else {
+      btn.disabled = false; btn.textContent = "Absenden";
+      status.innerHTML = "Das Senden hat gerade nicht geklappt. Bitte noch einmal versuchen oder den Text unten kopieren und an <b>" + esc(DATA.mail) + "</b> mailen.";
+      const pre = document.getElementById("mailtext"); pre.textContent = body; pre.classList.add("show");
+    }
     status.classList.add("show");
-    const pre = document.getElementById("mailtext"); pre.textContent = body; pre.classList.add("show");
   });
   document.getElementById("copy").addEventListener("click", async () => {
     const body = text(); const pre = document.getElementById("mailtext"); pre.textContent = body; pre.classList.add("show");
