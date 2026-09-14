@@ -54,6 +54,7 @@ pre.mailtext.show { display:block; }
 .index a .cnt { font-weight:400; color:var(--ink-2); font-size:15px; font-variant-numeric:tabular-nums; }
 .index a:hover { background:var(--surface-2); }
 .empty { background:var(--surface); border-radius:14px; padding:20px; margin-top:20px; }
+.val { font-size:20px; font-weight:600; padding:8px 0; border-bottom:1px solid var(--line); user-select:all; }
 footer { margin-top:48px; font-size:14px; color:var(--ink-2); border-top:1px solid var(--line); padding-top:14px; }
 @media (max-width:560px) { .person { grid-template-columns:1fr; } .person img { width:100%; max-width:260px; } .meta { grid-template-columns:1fr; } header img { height:36px; } }
 @media (prefers-reduced-motion: no-preference) { .primary { transition:filter .15s ease; } }
@@ -78,6 +79,15 @@ function renderIndex() {
 function key(p) { return "bauchbinden-" + p.slug; }
 function load(p) { try { return JSON.parse(localStorage.getItem(key(p)) || "{}"); } catch (e) { return {}; } }
 function save(p, v) { try { localStorage.setItem(key(p), JSON.stringify(v)); } catch (e) {} }
+function renderResult(p, r) {
+  const name = p.ort + (p.titel ? " – " + p.titel : "");
+  document.title = "Bauchbinden " + p.ort + " – Übersicht";
+  app.innerHTML = `<h1><small>machen!2026 · ${esc(p.ort)}</small>Eingesendete Bauchbinden</h1>
+  <p class="lead">${esc(name)} · eingesendet von ${esc(r.ap || "–")}${r.m ? " · " + esc(r.m) : ""}</p>
+  ${p.shots.map((src, i) => `<div class="person"><div class="thumb"><span class="num">${i + 1}</span><img src="${src}" alt="Person ${i + 1}"></div>
+    <div class="fields"><div><label>Name</label><div class="val">${esc((r.e[i] || [])[0] || "–")}</div></div><div><label>Rolle</label><div class="val">${esc((r.e[i] || [])[1] || "–")}</div></div></div></div>`).join("")}
+  ${r.n ? `<h2>Anmerkungen</h2><p>${esc(r.n)}</p>` : ""}`;
+}
 function renderProject(p) {
   const name = p.ort + (p.titel ? " – " + p.titel : "");
   document.title = "Bauchbinden " + p.ort;
@@ -132,7 +142,11 @@ function renderProject(p) {
     const body = text(); const v = collect(); const btn = f.querySelector("button[type=submit]");
     btn.disabled = true; btn.textContent = "Wird gesendet …"; status.textContent = ""; status.classList.remove("show");
     const fields = { _subject: "Bauchbinden " + name, _template: "table", _captcha: "false", Projekt: name };
-    p.shots.forEach((_, i) => { fields["Person " + (i + 1)] = (v["n" + i] || "") + " – " + (v["r" + i] || ""); });
+    const base = location.href.split("#")[0].replace(/[^/]*$/, "");
+    p.shots.forEach((_, i) => { fields["Person " + (i + 1)] = (v["n" + i] || "") + " – " + (v["r" + i] || "") + "  |  Bild: " + base + "p" + (i + 1) + ".jpg"; });
+    const result = { e: p.shots.map((_, i) => [v["n" + i] || "", v["r" + i] || ""]), ap: v.ap || "", m: v.mail || "", n: v.notes || "" };
+    const enc = btoa(unescape(encodeURIComponent(JSON.stringify(result)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    fields["Uebersicht mit Bildern"] = base + "#r=" + enc;
     fields["Ansprechpartner"] = v.ap || "-"; fields["E-Mail"] = v.mail || "-"; fields["Anmerkungen"] = v.notes || "-"; fields["Seite"] = location.href.split("#")[0];
     if (v.mail) fields._replyto = v.mail;
     let ok = false, notActivated = false;
@@ -160,7 +174,12 @@ function renderProject(p) {
     status.classList.add("show");
   });
 }
-function route() { if (DATA.projects.length === 1) { renderProject(DATA.projects[0]); return; } const s = slug(); const p = DATA.projects.find(x => x.slug === s); if (p) renderProject(p); else renderIndex(); window.scrollTo(0, 0); }
+function route() {
+  const m = location.hash.match(/^#r=([A-Za-z0-9_-]+)/);
+  if (m && DATA.projects.length === 1) {
+    try { const j = JSON.parse(decodeURIComponent(escape(atob(m[1].replace(/-/g, "+").replace(/_/g, "/"))))); renderResult(DATA.projects[0], j); return; } catch (e) {}
+  }
+  if (DATA.projects.length === 1) { renderProject(DATA.projects[0]); return; } const s = slug(); const p = DATA.projects.find(x => x.slug === s); if (p) renderProject(p); else renderIndex(); window.scrollTo(0, 0); }
 window.addEventListener("hashchange", route); route();
 </script>
 </body></html>
